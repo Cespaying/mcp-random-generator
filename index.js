@@ -3,7 +3,7 @@ import http from "http";
 let sseResponse = null;
 
 const httpServer = http.createServer(async (req, res) => {
-  // Настройка CORS заголовков для MyChatBot
+  // Настройка CORS заголовков
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
@@ -14,7 +14,7 @@ const httpServer = http.createServer(async (req, res) => {
     return;
   }
 
-  // 1. Инициализация SSE-соединения
+  // 1. Инициализация SSE-соединения (GET)
   if (req.method === "GET" && req.url.startsWith("/mcp/sse")) {
     res.writeHead(200, {
       "Content-Type": "text/event-stream",
@@ -24,14 +24,13 @@ const httpServer = http.createServer(async (req, res) => {
     
     sseResponse = res;
     
-    // Передаем MyChatBot жестко зафиксированный адрес для POST-запросов
     const msgUrl = "https://onrender.com";
     res.write(`event: endpoint\ndata: ${msgUrl}\n\n`);
     return;
   }
 
-  // 2. Обработка входящих JSON-RPC запросов протокола MCP
-  if (req.method === "POST" && req.url.startsWith("/mcp/messages")) {
+  // 2. Универсальная обработка POST-запросов (принимаем и на /mcp/sse, и на /mcp/messages)
+  if (req.method === "POST" && (req.url.startsWith("/mcp/sse") || req.url.startsWith("/mcp/messages"))) {
     let body = "";
     req.on("data", chunk => { body += chunk; });
     req.on("end", () => {
@@ -39,7 +38,7 @@ const httpServer = http.createServer(async (req, res) => {
         const json = JSON.parse(body);
         let response = { jsonrpc: "2.0", id: json.id };
 
-        // Запрос списка доступных инструментов
+        // Запрос списка инструментов
         if (json.method === "tools/list") {
           response.result = {
             tools: [
@@ -51,7 +50,7 @@ const httpServer = http.createServer(async (req, res) => {
             ]
           };
         } 
-        // Запрос выполнения инструмента
+        // Вызов инструмента
         else if (json.method === "tools/call") {
           if (json.params?.name === "get_random_number") {
             const num = Math.floor(Math.random() * 100) + 1;
@@ -62,7 +61,7 @@ const httpServer = http.createServer(async (req, res) => {
             response.error = { code: -32601, message: "Method not found" };
           }
         }
-        // Ответ на рукопожатие инициализации протокола
+        // Рукопожатие инициализации
         else if (json.method === "initialize") {
           response.result = {
             protocolVersion: "2024-11-05",
@@ -73,7 +72,6 @@ const httpServer = http.createServer(async (req, res) => {
           response.result = {};
         }
 
-        // Отправляем ответ обратно клиенту через JSON и дублируем в активную SSE сессию
         res.writeHead(200, { "Content-Type": "application/json" });
         res.end(JSON.stringify(response));
 
@@ -93,4 +91,4 @@ const httpServer = http.createServer(async (req, res) => {
 });
 
 const PORT = process.env.PORT || 10000;
-httpServer.listen(PORT, () => console.log(`Pure HTTP MCP server running on port ${PORT}`));
+httpServer.listen(PORT, () => console.log(`Universal MCP server running on port ${PORT}`));
