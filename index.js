@@ -1,15 +1,15 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import http from "http";
 
-// Используем базовый класс Server вместо McpServer для полного контроля
+// Используем базовый класс Server для полного контроля над логикой
 const server = new Server(
   { name: "Random Number Generator", version: "1.0.0" },
   { capabilities: { tools: {} } }
 );
 
-// Регистрируем список доступных инструментов вручную
+// Регистрируем список доступных инструментов по строгой схеме SDK
 server.setRequestHandler(
-  async (request) => request.method === "tools/list",
+  { method: "tools/list" }, // Передаем объект с методом, как требует валидатор
   async () => ({
     tools: [
       {
@@ -21,14 +21,17 @@ server.setRequestHandler(
   })
 );
 
-// Обрабатываем вызов самого инструмента
+// Обрабатываем вызов самого инструмента по строгой схеме SDK
 server.setRequestHandler(
-  async (request) => request.method === "tools/call" && request.params?.name === "get_random_number",
-  async () => {
-    const num = Math.floor(Math.random() * 100) + 1;
-    return {
-      content: [{ type: "text", text: `Сгенерировано случайное число: ${num}` }]
-    };
+  { method: "tools/call" }, // Передаем объект с методом
+  async (request) => {
+    if (request.params?.name === "get_random_number") {
+      const num = Math.floor(Math.random() * 100) + 1;
+      return {
+        content: [{ type: "text", text: `Сгенерировано случайное число: ${num}` }]
+      };
+    }
+    throw new Error("Tool not found");
   }
 );
 
@@ -55,7 +58,7 @@ const httpServer = http.createServer(async (req, res) => {
     
     sseResponse = res;
     
-    // Жёстко отправляем MyChatBot правильный, абсолютный URL для POST-запросов!
+    // Передаем MyChatBot жестко зафиксированный, абсолютный URL для POST-запросов
     const msgUrl = "https://onrender.com";
     res.write(`event: endpoint\ndata: ${msgUrl}\n\n`);
     return;
@@ -68,17 +71,16 @@ const httpServer = http.createServer(async (req, res) => {
     req.on("end", async () => {
       try {
         const json = JSON.parse(body);
-        // Передаем запрос в SDK и получаем ответ инструмента
+        
+        // Так как MyChatBot присылает запросы напрямую, перенаправляем их в обработчик SDK
         const result = await server.onrequest(json);
         
-        if (sseResponse) {
-          sseResponse.write(`data: ${JSON.stringify(result)}\n\n`);
-        }
+        // Если это был запрос инициализации или вызова инструмента, возвращаем ответ
         res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ status: "accepted" }));
+        res.end(JSON.stringify(result));
       } catch (e) {
         res.writeHead(400);
-        res.end("Invalid JSON");
+        res.end("Invalid JSON or execution error");
       }
     });
     return;
