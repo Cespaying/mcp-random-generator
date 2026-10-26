@@ -7,6 +7,7 @@ const server = new McpServer({
   version: "1.0.0"
 });
 
+// Инструмент генерации чисел
 server.tool("get_random_number", {}, async () => {
   const num = Math.floor(Math.random() * 100) + 1;
   return {
@@ -19,22 +20,14 @@ app.use(express.json());
 
 let transport = null;
 
+// Эндпоинт для MyChatBot
 app.get("/mcp/sse", async (req, res) => {
-  // Используем относительный путь, как требует SDK
+  // Передаем строго относительный путь /mcp/messages, как требует SDK
   transport = new SSEServerTransport("/mcp/messages", res);
-  
-  // Жёстко исправляем схему протокола для Render, перезаписывая метод отправки ссылки
-  const originalSend = transport.send.bind(transport);
-  transport.send = async (message) => {
-    if (message.endpoint) {
-      message.endpoint = "https://onrender.com";
-    }
-    return originalSend(message);
-  };
-
   await server.connect(transport);
 });
 
+// Эндпоинт для сообщений протокола
 app.post("/mcp/messages", async (req, res) => {
   if (transport) {
     await transport.handleMessage(req, res);
@@ -43,5 +36,5 @@ app.post("/mcp/messages", async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => console.log(`MCP server running on port ${PORT}`));
