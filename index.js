@@ -1,4 +1,4 @@
-﻿import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import express from "express";
 
@@ -7,11 +7,8 @@ const server = new McpServer({
   version: "1.0.0"
 });
 
-server.tool("get_random_number", {
-  min: (val) => typeof val === "number" ? val : 1,
-  max: (val) => typeof val === "number" ? val : 100
-}, async ({ min = 1, max = 100 }) => {
-  const num = Math.floor(Math.random() * (max - min + 1)) + min;
+server.tool("get_random_number", {}, async () => {
+  const num = Math.floor(Math.random() * 100) + 1;
   return {
     content: [{ type: "text", text: `Сгенерировано случайное число: ${num}` }]
   };
@@ -23,14 +20,20 @@ app.use(express.json());
 let transport = null;
 
 app.get("/mcp/sse", async (req, res) => {
-  const protocol = req.headers['x-forwarded-proto'] || req.protocol;
-  const host = req.get('host');
-  const fullEndpoint = `${protocol}://${host}/mcp/messages`;
+  // Используем относительный путь, как требует SDK
+  transport = new SSEServerTransport("/mcp/messages", res);
   
-  transport = new SSEServerTransport(fullEndpoint, res);
+  // Жёстко исправляем схему протокола для Render, перезаписывая метод отправки ссылки
+  const originalSend = transport.send.bind(transport);
+  transport.send = async (message) => {
+    if (message.endpoint) {
+      message.endpoint = "https://onrender.com";
+    }
+    return originalSend(message);
+  };
+
   await server.connect(transport);
 });
-
 
 app.post("/mcp/messages", async (req, res) => {
   if (transport) {
