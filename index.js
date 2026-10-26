@@ -23,9 +23,14 @@ app.use(express.json());
 let transport = null;
 
 app.get("/mcp/sse", async (req, res) => {
-  transport = new SSEServerTransport("/mcp/messages", res);
+  const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+  const host = req.get('host');
+  const fullEndpoint = `${protocol}://${host}/mcp/messages`;
+  
+  transport = new SSEServerTransport(fullEndpoint, res);
   await server.connect(transport);
 });
+
 
 app.post("/mcp/messages", async (req, res) => {
   if (transport) {
