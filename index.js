@@ -15,7 +15,7 @@ const httpServer = http.createServer(async (req, res) => {
   }
 
   // 1. Инициализация SSE-соединения (GET)
-  if (req.method === "GET" && req.url.startsWith("/mcp/sse")) {
+  if (req.method === "GET") {
     res.writeHead(200, {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
@@ -24,13 +24,14 @@ const httpServer = http.createServer(async (req, res) => {
     
     sseResponse = res;
     
+    // Передаем тот же адрес, куда MyChatBot может отправлять POST-запросы
     const msgUrl = "https://onrender.com";
     res.write(`event: endpoint\ndata: ${msgUrl}\n\n`);
     return;
   }
 
-  // 2. Универсальная обработка POST-запросов (принимаем и на /mcp/sse, и на /mcp/messages)
-  if (req.method === "POST" && (req.url.startsWith("/mcp/sse") || req.url.startsWith("/mcp/messages"))) {
+  // 2. Универсальная обработка ВСЕХ POST-запросов (без проверки путей и URL)
+  if (req.method === "POST") {
     let body = "";
     req.on("data", chunk => { body += chunk; });
     req.on("end", () => {
@@ -91,4 +92,4 @@ const httpServer = http.createServer(async (req, res) => {
 });
 
 const PORT = process.env.PORT || 10000;
-httpServer.listen(PORT, () => console.log(`Universal MCP server running on port ${PORT}`));
+httpServer.listen(PORT, () => console.log(`Omni-channel MCP server running on port ${PORT}`));
