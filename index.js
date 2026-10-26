@@ -24,13 +24,12 @@ const httpServer = http.createServer(async (req, res) => {
     
     sseResponse = res;
     
-    // Передаем тот же адрес, куда MyChatBot может отправлять POST-запросы
-    const msgUrl = "https://onrender.com";
+    const msgUrl = "https://mcp-random-generator.onrender.com/mcp/sse";
     res.write(`event: endpoint\ndata: ${msgUrl}\n\n`);
     return;
   }
 
-  // 2. Универсальная обработка ВСЕХ POST-запросов (без проверки путей и URL)
+  // 2. Универсальная обработка ВСЕХ POST-запросов
   if (req.method === "POST") {
     let body = "";
     req.on("data", chunk => { body += chunk; });
@@ -45,16 +44,17 @@ const httpServer = http.createServer(async (req, res) => {
             tools: [
               {
                 name: "get_random_number",
-                description: "Генерирует случайное число от 1 до 100",
+                description: "Генерирует случайное шестизначное число (например, 456789)",
                 inputSchema: { type: "object", properties: {} }
               }
             ]
           };
         } 
-        // Вызов инструмента
+        // Вызов инструмента (Генерация 6-значного числа)
         else if (json.method === "tools/call") {
           if (json.params?.name === "get_random_number") {
-            const num = Math.floor(Math.random() * 100) + 1;
+            // Строго от 100000 до 999999
+            const num = Math.floor(100000 + Math.random() * 900000);
             response.result = {
               content: [{ type: "text", text: `Сгенерировано случайное число: ${num}` }]
             };
